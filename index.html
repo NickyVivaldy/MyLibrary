@@ -436,42 +436,46 @@
 
         // LOAD GAMES DARI CLOUD + OTOMATIS MIGRASI 15 GAME LAMA
         async function loadGamesFromCloud() {
-            if (!currentUser) return;
-            try {
-                const gamesColRef = collection(db, "users", currentUser.uid, "games");
-                const querySnapshot = await getDocs(gamesColRef);
-                const loadedGames = [];
-                querySnapshot.forEach((docSnap) => {
-                    loadedGames.push(docSnap.data());
-                });
+    if (!currentUser) return;
+    try {
+        // 1. Cek dulu sub-koleksi baru
+        const gamesColRef = collection(db, "users", currentUser.uid, "games");
+        const querySnapshot = await getDocs(gamesColRef);
+        const loadedGames = [];
+        querySnapshot.forEach((docSnap) => {
+            loadedGames.push(docSnap.data());
+        });
 
-                if (loadedGames.length > 0) {
-                    window.games = loadedGames;
-                } else {
-                    // Cek apakah ada data lama di dokumen induk users/{uid}
-                    const oldDocRef = doc(db, "users", currentUser.uid);
-                    const oldDocSnap = await getDoc(oldDocRef);
+        if (loadedGames.length > 0) {
+            window.games = loadedGames;
+        } else {
+            // 2. Jika sub-koleksi kosong, TARIK 15 GAME LAMA dari dokumen induk users/{uid}
+            const parentDocRef = doc(db, "users", currentUser.uid);
+            const parentSnap = await getDoc(parentDocRef);
 
-                    if (oldDocSnap.exists() && oldDocSnap.data().games && oldDocSnap.data().games.length > 0) {
-                        const oldGames = oldDocSnap.data().games;
-                        window.games = oldGames;
-                        // Pindahkan otomatis ke sub-koleksi baru
-                        for (const g of oldGames) {
-                            await setDoc(doc(db, "users", currentUser.uid, "games", String(g.id)), g);
-                        }
-                        showToast("🎉 15 Game lama berhasil dipulihkan!");
-                    } else {
-                        window.games = initialGames;
-                        for (const g of initialGames) {
-                            await setDoc(doc(db, "users", currentUser.uid, "games", String(g.id)), g);
-                        }
-                    }
+            if (parentSnap.exists() && parentSnap.data().games && parentSnap.data().games.length > 0) {
+                const oldGames = parentSnap.data().games;
+                window.games = oldGames;
+                
+                // Pindahkan otomatis ke sub-koleksi baru supaya tersimpan permanen & aman
+                for (const g of oldGames) {
+                    await setDoc(doc(db, "users", currentUser.uid, "games", String(g.id)), g);
                 }
-            } catch (e) {
-                console.error("Cloud Read Error:", e);
-                loadGamesFromStorage();
+                showToast(`🎉 Berhasil memulihkan ${oldGames.length} game lama kamu!`);
+            } else {
+                window.games = initialGames;
+                for (const g of initialGames) {
+                    await setDoc(doc(db, "users", currentUser.uid, "games", String(g.id)), g);
+                }
             }
         }
+        render();
+    } catch (e) {
+        console.error("Cloud Read Error:", e);
+        loadGamesFromStorage();
+    }
+}
+
 
         window.saveSingleGameToCloud = async function(gameObj) {
             if (!currentUser) return;
