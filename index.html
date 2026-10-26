@@ -204,7 +204,7 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold text-slate-300 mb-2">Pilih Sumber Cover (Landscape 16:9)</label>
+                    <label class="block text-xs font-semibold text-slate-300 mb-2">Pilih Sumber Cover (Kualitas Asli 100%)</label>
                     <div class="grid grid-cols-2 gap-2 mb-2">
                         <button type="button" id="btnSourceFile" onclick="switchImageSource('file')" class="py-1.5 text-xs font-semibold rounded-lg border bg-purple-600 text-white border-purple-500 transition flex items-center justify-center gap-1.5">
                             <i class="fa-solid fa-upload"></i> Upload Lokal
@@ -220,7 +220,7 @@
                             <div class="flex flex-col items-center justify-center space-y-1">
                                 <i class="fa-solid fa-image text-slate-400 text-xl"></i>
                                 <span class="text-xs text-slate-300 font-medium" id="fileNameDisplay">Klik / Cari Gambar</span>
-                                <span class="text-[10px] text-slate-500">Disarankan Format Landscape 16:9</span>
+                                <span class="text-[10px] text-slate-500">Resolusi & Kualitas Asli Dipertahankan</span>
                             </div>
                         </div>
                     </div>
@@ -232,7 +232,7 @@
 
                     <div id="imagePreviewWrapper" class="hidden mt-3 aspect-16-9 w-full rounded-xl overflow-hidden border border-slate-700 bg-slate-950 relative">
                         <img id="imagePreview" src="" alt="Preview Gambar" class="w-full h-full object-cover">
-                        <span class="absolute bottom-2 right-2 bg-black/70 text-[10px] text-white px-2 py-0.5 rounded backdrop-blur">Preview 16:9</span>
+                        <span class="absolute bottom-2 right-2 bg-black/70 text-[10px] text-white px-2 py-0.5 rounded backdrop-blur">Preview Original</span>
                     </div>
                 </div>
 
@@ -338,11 +338,11 @@
         </div>
     </footer>
 
-    <!-- Firebase SDK Integration -->
+    <!-- Firebase SDK & IndexedDB Local Storage Integration -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, doc, setDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         // Firebase Configuration
         const firebaseConfig = {
@@ -434,41 +434,58 @@
             showToast('Berhasil Logout.');
         };
 
+        // SISTEM DOKUMEN TERPISAH: Setiap game disimpan di sub-koleksi users/{uid}/games
         async function loadGamesFromCloud() {
             if (!currentUser) return;
             try {
-                const docRef = doc(db, "users", currentUser.uid);
-                const docSnap = await getDoc(docRef);
-                if (docSnap.exists()) {
-                    window.games = docSnap.data().games || [];
+                const gamesColRef = collection(db, "users", currentUser.uid, "games");
+                const querySnapshot = await getDocs(gamesColRef);
+                const loadedGames = [];
+                querySnapshot.forEach((docSnap) => {
+                    loadedGames.push(docSnap.data());
+                });
+
+                if (loadedGames.length > 0) {
+                    window.games = loadedGames;
                 } else {
                     window.games = initialGames;
-                    await saveGamesToCloud();
+                    for (const g of initialGames) {
+                        await setDoc(doc(db, "users", currentUser.uid, "games", g.id), g);
+                    }
                 }
             } catch (e) {
-                console.error("Cloud Error:", e);
+                console.error("Cloud Read Error:", e);
                 loadGamesFromStorage();
             }
         }
 
-        async function saveGamesToCloud() {
+        // SIMPAN / UPDATE 1 GAME SPESIFIK KE CLOUD (Anti-Limit 1MB per dokumen)
+        window.saveSingleGameToCloud = async function(gameObj) {
             if (!currentUser) return;
             try {
-                const docRef = doc(db, "users", currentUser.uid);
-                await setDoc(docRef, { games: window.games });
+                const gameDocRef = doc(db, "users", currentUser.uid, "games", gameObj.id);
+                await setDoc(gameDocRef, gameObj);
             } catch (e) {
-                console.error("Gagal simpan ke cloud:", e);
+                console.error("Gagal simpan game ke cloud:", e);
             }
-        }
+        };
+
+        // HAPUS 1 GAME SPESIFIK DARI CLOUD
+        window.deleteGameFromCloud = async function(gameId) {
+            if (!currentUser) return;
+            try {
+                const gameDocRef = doc(db, "users", currentUser.uid, "games", gameId);
+                await deleteDoc(gameDocRef);
+            } catch (e) {
+                console.error("Gagal hapus game dari cloud:", e);
+            }
+        };
 
         window.saveGamesToStorage = function() {
             try {
                 localStorage.setItem('gamer_vault_data', JSON.stringify(window.games));
-                if (currentUser) {
-                    saveGamesToCloud();
-                }
             } catch (e) {
-                showToast('⚠️ Local Storage Penuh!');
+                showToast('⚠️ Local Storage Browser Penuh!');
             }
         };
 
@@ -482,12 +499,12 @@
             }
         }
 
-        // FUNGSI KONVERSI GAMBAR LOKAL KE BASE64 (DITAMPUNG DI DATABASE FIRESTORE)
+        // FUNGSI KONVERSI BASE64 100% ORIGINAL TANPA KOMPRESI SAMA SEKALI
         window.convertImageToBase64 = function(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result);
+                reader.onload = () => resolve(reader.result); // Mengambil data mentah asli tanpa resize/kompres
                 reader.onerror = error => reject(error);
             });
         };
@@ -522,12 +539,15 @@
 
         function importDataJSON(event) {
             const fileReader = new FileReader();
-            fileReader.onload = function(e) {
+            fileReader.onload = async function(e) {
                 try {
                     const imported = JSON.parse(e.target.result);
                     if (Array.isArray(imported)) {
                         window.games = imported;
                         window.saveGamesToStorage();
+                        for (const g of imported) {
+                            await window.saveSingleGameToCloud(g);
+                        }
                         render();
                         showToast('📂 Backup JSON berhasil dipulihkan!');
                     }
@@ -706,17 +726,18 @@
             return card;
         }
 
-        function updateWishlistStatus(gameId, newStatus) {
+        async function updateWishlistStatus(gameId, newStatus) {
             const index = window.games.findIndex(g => g.id === gameId);
             if (index !== -1) {
                 window.games[index].status = newStatus;
                 window.saveGamesToStorage();
+                await window.saveSingleGameToCloud(window.games[index]);
                 render();
                 showToast(`Status game diubah ke <b>${newStatus}</b>`);
             }
         }
 
-        function triggerEndTransition(gameId) {
+        async function triggerEndTransition(gameId) {
             const index = window.games.findIndex(g => g.id === gameId);
             if (index === -1) return;
 
@@ -725,6 +746,7 @@
             if (!window.games[index].rating) window.games[index].rating = 5;
             
             window.saveGamesToStorage();
+            await window.saveSingleGameToCloud(window.games[index]);
             switchTab('completed');
             showToast(`🎮 YAY! Game <b>"${window.games[index].title}"</b> tamat!`);
             openRatingModal(gameId);
@@ -758,7 +780,7 @@
         async function handleAddGame(e) {
             e.preventDefault();
             const btnSubmit = document.getElementById('btnSubmitGame');
-            btnSubmit.innerText = "Menyimpan ke Firebase...";
+            btnSubmit.innerText = "Menyimpan Gambar Asli...";
             btnSubmit.disabled = true;
 
             const title = document.getElementById('addTitle').value.trim();
@@ -769,7 +791,7 @@
 
             let image = '';
             if (window.currentImageSourceType === 'file' && window.selectedImageFile) {
-                // Mengubah file lokal menjadi Base64 teks
+                // Mengambil gambar 100% mentah tanpa kompresi
                 image = await window.convertImageToBase64(window.selectedImageFile);
             } else {
                 image = document.getElementById('addImageUrl').value.trim();
@@ -787,13 +809,15 @@
             };
 
             window.games.unshift(newGame);
-            window.saveGamesToStorage(); // Otomatis tersimpan ke Cloud Firestore
+            window.saveGamesToStorage();
+            await window.saveSingleGameToCloud(newGame);
+
             closeAddModal();
             btnSubmit.innerText = "Simpan Game";
             btnSubmit.disabled = false;
 
             if (window.currentTab !== category) switchTab(category); else render();
-            showToast(`Game <b>"${title}"</b> berhasil disimpan ke Firebase!`);
+            showToast(`Game <b>"${title}"</b> dengan gambar asli berhasil disimpan!`);
         }
 
         function openRatingModal(gameId) {
@@ -834,24 +858,27 @@
             document.getElementById('ratingValueText').innerText = `${ratingVal}.0 / 5.0`;
         }
 
-        function saveRatingAndReview() {
+        async function saveRatingAndReview() {
             if (!window.selectedGameForRating) return;
             const index = window.games.findIndex(g => g.id === window.selectedGameForRating.id);
             if (index !== -1) {
                 window.games[index].rating = window.tempRatingValue;
                 window.games[index].review = document.getElementById('ratingReviewText').value.trim();
                 window.saveGamesToStorage();
+                await window.saveSingleGameToCloud(window.games[index]);
                 render();
                 showToast(`Rating diperbarui di Cloud!`);
             }
             closeRatingModal();
         }
 
-        function deleteCurrentGame() {
+        async function deleteCurrentGame() {
             if (!window.selectedGameForRating) return;
-            if (confirm(`Hapus "${window.selectedGameForRating.title}"?`)) {
-                window.games = window.games.filter(g => g.id !== window.selectedGameForRating.id);
+            const targetGame = window.selectedGameForRating;
+            if (confirm(`Hapus "${targetGame.title}"?`)) {
+                window.games = window.games.filter(g => g.id !== targetGame.id);
                 window.saveGamesToStorage();
+                await window.deleteGameFromCloud(targetGame.id);
                 closeRatingModal();
                 render();
                 showToast(`Game dihapus.`);
