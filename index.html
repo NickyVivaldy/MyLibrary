@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Library Games - Personal Tracker</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Orbitron & Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        gaming: {
+                            dark: '#0a0a0f',
+                            card: '#12131e',
+                            cardHover: '#1a1c2e',
+                            purple: '#8b5cf6',
+                            neonPurple: '#a855f7',
+                            cyan: '#06b6d4',
+                            emerald: '#10b981',
+                            amber: '#f59e0b',
+                            rose: '#f43f5e'
+                        }
+                    },
+                    fontFamily: {
+                        gaming: ['Orbitron', 'sans-serif'],
+                        sans: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0a0a0f; }
+        ::-webkit-scrollbar-thumb { background: #1f293d; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #8b5cf6; }
+
+        .neon-glow-purple { box-shadow: 0 0 15px rgba(139, 92, 246, 0.4); }
+        .neon-glow-cyan { box-shadow: 0 0 15px rgba(6, 182, 212, 0.4); }
+        .neon-glow-emerald { box-shadow: 0 0 15px rgba(16, 185, 129, 0.4); }
+        .neon-border { border: 1px solid rgba(139, 92, 246, 0.3); }
+        .neon-border:hover { border-color: rgba(168, 85, 247, 0.8); box-shadow: 0 0 20px rgba(168, 85, 247, 0.3); }
+
+        .game-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .game-card:hover { transform: translateY(-6px) scale(1.01); }
+        .aspect-16-9 { aspect-ratio: 16 / 9; }
+
+        .star-rating i { transition: color 0.15s ease-in-out, transform 0.15s ease-in-out; }
+        .star-rating i:hover { transform: scale(1.25); }
+
+        @keyframes slideIn {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .toast-animate { animation: slideIn 0.3s forwards; }
+    </style>
+</head>
+<body class="bg-gaming-dark text-slate-200 font-sans min-h-screen flex flex-col justify-between selection:bg-purple-500 selection:text-white">
+
+    <!-- Header & Navigation -->
+    <header class="sticky top-0 z-30 bg-gaming-dark/90 backdrop-blur-md border-b border-purple-900/40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div class="flex flex-col lg:flex-row items-center justify-between gap-4">
+                <!-- Logo -->
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 to-cyan-400 flex items-center justify-center neon-glow-purple">
+                        <i class="fa-solid font-bold fa-gamepad text-white text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-gaming text-xl sm:text-2xl font-black bg-gradient-to-r from-purple-400 via-cyan-400 to-emerald-400 bg-clip-text text-transparent tracking-wider">
+                            Library Games
+                        </h1>
+                        <p class="text-xs text-slate-400">My Gaming Library & History</p>
+                    </div>
+                </div>
+
+                <!-- Search, Actions & Auth -->
+                <div class="flex flex-wrap items-center justify-end gap-2.5 w-full lg:w-auto">
+                    <!-- Search Input -->
+                    <div class="relative flex-1 sm:w-48 lg:w-56">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                        <input type="text" id="searchInput" placeholder="Cari judul game..." 
+                            class="w-full bg-slate-900/80 border border-slate-700/60 rounded-xl pl-9 pr-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-purple-500 transition">
+                    </div>
+
+                    <!-- Export JSON Button -->
+                    <button onclick="exportDataJSON()" title="Download Backup Data" 
+                        class="bg-emerald-950/80 hover:bg-emerald-900 text-emerald-400 border border-emerald-500/50 font-semibold px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 transition active:scale-95 whitespace-nowrap">
+                        <i class="fa-solid fa-download"></i> Export
+                    </button>
+
+                    <!-- Import JSON Button -->
+                    <button onclick="document.getElementById('importFileInput').click()" title="Restore Data dari Backup" 
+                        class="bg-cyan-950/80 hover:bg-cyan-900 text-cyan-400 border border-cyan-500/50 font-semibold px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 transition active:scale-95 whitespace-nowrap">
+                        <i class="fa-solid fa-upload"></i> Import
+                    </button>
+                    <input type="file" id="importFileInput" accept=".json" class="hidden" onchange="importDataJSON(event)">
+
+                    <!-- Add Game Button -->
+                    <button onclick="openAddModal()" 
+                        class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold px-4 py-2 rounded-xl text-sm flex items-center gap-2 neon-glow-purple transition active:scale-95 whitespace-nowrap">
+                        <i class="fa-solid fa-plus"></i> Tambah Game
+                    </button>
+
+                    <!-- Google Auth Container -->
+                    <div id="authContainer" class="pl-2 border-l border-slate-800 flex items-center">
+                        <button id="btnLogin" onclick="loginWithGoogle()" class="bg-rose-600 hover:bg-rose-500 text-white font-semibold px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 transition">
+                            <i class="fa-brands fa-google"></i> Login Google
+                        </button>
+                        <div id="userProfile" class="hidden flex items-center gap-2">
+                            <img id="userAvatar" class="w-8 h-8 rounded-full border border-purple-500 object-cover" src="" alt="User Avatar">
+                            <button onclick="logoutGoogle()" title="Logout" class="text-slate-400 hover:text-rose-400 text-xs px-1">
+                                <i class="fa-solid fa-right-from-bracket"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation Tabs -->
+            <div class="flex border-b border-slate-800 mt-6 gap-8">
+                <button id="tabWishlist" onclick="switchTab('wishlist')" 
+                    class="py-3 px-1 font-gaming text-sm font-bold flex items-center gap-2 border-b-2 border-cyan-400 text-cyan-400 transition-all duration-200">
+                    <i class="fa-solid fa-hourglass-half"></i>
+                    List Game
+                    <span id="badgeWishlistCount" class="bg-cyan-950 text-cyan-300 text-xs px-2 py-0.5 rounded-full border border-cyan-800/50">0</span>
+                </button>
+                <button id="tabCompleted" onclick="switchTab('completed')" 
+                    class="py-3 px-1 font-gaming text-sm font-bold flex items-center gap-2 border-b-2 border-transparent text-slate-400 hover:text-purple-400 transition-all duration-200">
+                    <i class="fa-solid fa-trophy text-amber-400"></i>
+                    History Game
+                    <span id="badgeCompletedCount" class="bg-purple-950 text-purple-300 text-xs px-2 py-0.5 rounded-full border border-purple-800/50">0</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+        <!-- Status Filter Controls -->
+        <div id="wishlistFilterContainer" class="flex flex-wrap items-center justify-between gap-4 mb-6 bg-slate-900/40 p-3 rounded-2xl border border-slate-800/80">
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2">Filter Status:</span>
+                <button onclick="setWishlistSubFilter('all')" id="btnFilterAll" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-600 text-white transition">Semua</button>
+                <button onclick="setWishlistSubFilter('Playing')" id="btnFilterPlaying" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 transition flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Playing
+                </button>
+                <button onclick="setWishlistSubFilter('Not Playing')" id="btnFilterNotPlaying" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 transition flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-amber-400"></span> Not Playing
+                </button>
+            </div>
+            <div class="text-xs text-slate-400 px-2">
+                <i class="fa-solid fa-circle-info text-cyan-400 mr-1"></i> Klik opsi <span class="text-rose-400 font-bold">END</span> pada kartu game untuk memindahkannya ke History Game!
+            </div>
+        </div>
+
+        <div id="completedInfoContainer" class="hidden mb-6 bg-purple-950/20 p-4 rounded-2xl border border-purple-900/40 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-purple-900/50 border border-purple-700/50 flex items-center justify-center shrink-0">
+                <i class="fa-solid fa-star text-amber-400 text-lg"></i>
+            </div>
+            <div>
+                <h3 class="font-gaming text-sm font-bold text-purple-300">Koleksi Game Tamat</h3>
+                <p class="text-xs text-slate-400">Klik pada kartu game untuk memberikan rating bintang & ulasan pribadi kamu!</p>
+            </div>
+        </div>
+
+        <!-- Game Cards Grid -->
+        <div id="gameGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+
+        <!-- Empty State Container -->
+        <div id="emptyState" class="hidden flex-col items-center justify-center py-16 text-center">
+            <div class="w-20 h-20 rounded-full bg-slate-900 flex items-center justify-center mb-4 border border-slate-800">
+                <i class="fa-solid fa-ghost text-4xl text-slate-600"></i>
+            </div>
+            <h3 class="font-gaming text-lg text-slate-300 font-bold mb-1">Tidak Ada Game Ditemukan</h3>
+            <p class="text-sm text-slate-500 max-w-sm mb-4">Daftar ini masih kosong atau tidak ada game yang cocok dengan pencarian kamu.</p>
+            <button onclick="openAddModal()" class="bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold px-4 py-2 rounded-xl transition">
+                + Tambah Game Baru
+            </button>
+        </div>
+    </main>
+
+    <!-- Modal: Add New Game -->
+    <div id="addModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-gaming-card border border-purple-500/40 rounded-2xl w-full max-w-md p-6 shadow-2xl relative neon-glow-purple max-h-[90vh] overflow-y-auto">
+            <button onclick="closeAddModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+            <h2 class="font-gaming text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-gamepad text-purple-400"></i> Tambah Game Baru
+            </h2>
+            <form id="addGameForm" onsubmit="handleAddGame(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Judul Game *</label>
+                    <input type="text" id="addTitle" required placeholder="Contoh: Cyberpunk 2077" 
+                        class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-purple-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-2">Pilih Sumber Cover (Landscape 16:9)</label>
+                    <div class="grid grid-cols-2 gap-2 mb-2">
+                        <button type="button" id="btnSourceFile" onclick="switchImageSource('file')" class="py-1.5 text-xs font-semibold rounded-lg border bg-purple-600 text-white border-purple-500 transition flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-upload"></i> Upload Lokal
+                        </button>
+                        <button type="button" id="btnSourceUrl" onclick="switchImageSource('url')" class="py-1.5 text-xs font-semibold rounded-lg border bg-slate-900 text-slate-400 border-slate-700 hover:text-white transition flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-link"></i> Gunakan URL
+                        </button>
+                    </div>
+
+                    <div id="fileInputContainer">
+                        <div class="relative border-2 border-dashed border-slate-700 hover:border-purple-500 rounded-xl p-3 text-center bg-slate-900/50 transition cursor-pointer">
+                            <input type="file" id="addLocalFile" accept="image/*" onchange="previewLocalImage(this)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                            <div class="flex flex-col items-center justify-center space-y-1">
+                                <i class="fa-solid fa-image text-slate-400 text-xl"></i>
+                                <span class="text-xs text-slate-300 font-medium" id="fileNameDisplay">Klik / Cari Gambar</span>
+                                <span class="text-[10px] text-slate-500">Disarankan Format Landscape 16:9</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="urlInputContainer" class="hidden">
+                        <input type="url" id="addImageUrl" placeholder="https://domain.com/gambar.jpg" 
+                            class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-purple-500">
+                    </div>
+
+                    <div id="imagePreviewWrapper" class="hidden mt-3 aspect-16-9 w-full rounded-xl overflow-hidden border border-slate-700 bg-slate-950 relative">
+                        <img id="imagePreview" src="" alt="Preview Gambar" class="w-full h-full object-cover">
+                        <span class="absolute bottom-2 right-2 bg-black/70 text-[10px] text-white px-2 py-0.5 rounded backdrop-blur">Preview 16:9</span>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Platform</label>
+                    <select id="addPlatform" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-purple-500">
+                        <option value="PC">PC / Windows</option>
+                        <option value="PlayStation">PlayStation</option>
+                        <option value="Xbox">Xbox</option>
+                        <option value="Nintendo Switch">Nintendo Switch</option>
+                        <option value="Mobile">Mobile (Android/iOS)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Masuk ke Kategori Menu *</label>
+                    <select id="addCategory" onchange="toggleModalStatusField()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-purple-500">
+                        <option value="wishlist">List Game</option>
+                        <option value="completed">History Game</option>
+                    </select>
+                </div>
+                <div id="modalStatusGroup">
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Status Awal</label>
+                    <select id="addStatus" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-purple-500">
+                        <option value="Not Playing">Not Playing (Backlog)</option>
+                        <option value="Playing">Playing (Sedang Dimainkan)</option>
+                    </select>
+                </div>
+                <div id="modalRatingGroup" class="hidden">
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Rating Awal (1-5 Bintang)</label>
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="addRating" min="1" max="5" value="5" class="w-20 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-purple-500">
+                        <span class="text-amber-400"><i class="fa-solid fa-star"></i></span>
+                    </div>
+                </div>
+                <div class="pt-2 flex justify-end gap-2">
+                    <button type="button" onclick="closeAddModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:bg-slate-800 transition">Batal</button>
+                    <button type="submit" id="btnSubmitGame" class="px-5 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 text-white neon-glow-purple transition hover:brightness-110">Simpan Game</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Rating & Review -->
+    <div id="ratingModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-gaming-card border border-purple-500/40 rounded-2xl w-full max-w-md p-6 shadow-2xl relative neon-glow-purple">
+            <button onclick="closeRatingModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+            <div class="flex flex-col gap-3 mb-4">
+                <div class="w-full aspect-16-9 rounded-xl overflow-hidden border border-slate-700 shadow relative bg-slate-900">
+                    <img id="ratingModalImg" class="w-full h-full object-cover" src="" alt="Game Poster">
+                    <span id="ratingModalPlatform" class="absolute top-2 left-2 text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded bg-black/80 text-purple-300 border border-purple-800 backdrop-blur"></span>
+                </div>
+                <div>
+                    <h3 id="ratingModalTitle" class="font-gaming text-base font-bold text-white mt-1"></h3>
+                    <p class="text-xs text-slate-400">Atur Rating & Ulasan Kamu</p>
+                </div>
+            </div>
+
+            <hr class="border-slate-800 my-4">
+
+            <div class="text-center mb-6">
+                <label class="block text-xs font-semibold text-slate-300 mb-2">Beri Rating Bintang:</label>
+                <div id="starContainer" class="star-rating flex items-center justify-center gap-2 text-2xl text-slate-600 cursor-pointer">
+                    <i class="fa-solid fa-star" data-value="1" onclick="setStarRating(1)" onmouseover="highlightStars(1)" onmouseleave="resetStars()"></i>
+                    <i class="fa-solid fa-star" data-value="2" onclick="setStarRating(2)" onmouseover="highlightStars(2)" onmouseleave="resetStars()"></i>
+                    <i class="fa-solid fa-star" data-value="3" onclick="setStarRating(3)" onmouseover="highlightStars(3)" onmouseleave="resetStars()"></i>
+                    <i class="fa-solid fa-star" data-value="4" onclick="setStarRating(4)" onmouseover="highlightStars(4)" onmouseleave="resetStars()"></i>
+                    <i class="fa-solid fa-star" data-value="5" onclick="setStarRating(5)" onmouseover="highlightStars(5)" onmouseleave="resetStars()"></i>
+                </div>
+                <div id="ratingValueText" class="text-sm font-gaming font-bold text-amber-400 mt-2">5.0 / 5.0</div>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Catatan / Impresi Tamat (Opsional)</label>
+                <textarea id="ratingReviewText" rows="3" placeholder="Tulis catatan atau kesan kamu setelah menyelesaikan game ini..." 
+                    class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-purple-500"></textarea>
+            </div>
+
+            <div class="flex items-center justify-between">
+                <button type="button" onclick="deleteCurrentGame()" class="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1">
+                    <i class="fa-solid fa-trash"></i> Hapus Game
+                </button>
+                <div class="flex gap-2">
+                    <button type="button" onclick="closeRatingModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:bg-slate-800 transition">Batal</button>
+                    <button type="button" onclick="saveRatingAndReview()" class="px-5 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 text-white neon-glow-purple transition hover:brightness-110">Simpan Rating</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 hidden">
+        <div class="bg-slate-900 border border-purple-500/80 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 toast-animate border-l-4 border-l-purple-500">
+            <div id="toastIcon" class="text-purple-400 text-lg"><i class="fa-solid fa-circle-check"></i></div>
+            <div id="toastMessage" class="text-xs font-medium">Notifikasi</div>
+        </div>
+    </div>
+
+    <footer class="border-t border-slate-900 bg-slate-950/80 py-6 mt-12 text-center text-xs text-slate-600">
+        <div class="max-w-7xl mx-auto px-4">
+            <p>© 2026 Library Games - Dibuat untuk melacak koleksi game kamu secara personal.</p>
+        </div>
+    </footer>
+
+    <!-- Firebase SDK Integration -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAsR1VFq1PnYLh_42n-Q9INxO6mjD-rRxQ",
+            authDomain: "library-games.firebaseapp.com",
+            projectId: "library-games",
+            storageBucket: "library-games.firebasestorage.app",
+            messagingSenderId: "863036149927",
+            appId: "1:863036149927:web:6da639719284da58858b82"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const provider = new GoogleAuthProvider();
+
+        let currentUser = null;
+
+        // Default Mock Data
+        const initialGames = [
+            {
+                id: '1',
+                title: 'Elden Ring',
+                image: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1200&auto=format&fit=crop',
+                platform: 'PC',
+                category: 'completed',
+                status: 'End', 
+                rating: 5,
+                review: 'Game terbaik dengan dunia open world luar biasa padat dan tantangan bos yang memuaskan!'
+            },
+            {
+                id: '2',
+                title: 'God of War Ragnarök',
+                image: 'https://images.unsplash.com/photo-1538481199705-c710c4e965fc?q=80&w=1200&auto=format&fit=crop',
+                platform: 'PlayStation',
+                category: 'completed',
+                status: 'End',
+                rating: 5,
+                review: 'Alur cerita ayah-anak yang sangat emosional. Mekanik pertarungan Kratos mantap!'
+            },
+            {
+                id: '3',
+                title: 'Black Myth: Wukong',
+                image: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=1200&auto=format&fit=crop',
+                platform: 'PC',
+                category: 'wishlist',
+                status: 'Playing',
+                rating: 0,
+                review: ''
+            }
+        ];
+
+        window.games = [];
+        window.currentTab = 'wishlist';
+        window.currentWishlistSubFilter = 'all';
+        window.selectedGameForRating = null;
+        window.tempRatingValue = 5;
+        window.currentImageSourceType = 'file';
+        window.selectedImageFile = null;
+
+        // Auth State Listener
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('btnLogin').classList.add('hidden');
+                document.getElementById('userProfile').classList.remove('hidden');
+                document.getElementById('userAvatar').src = user.photoURL || 'https://via.placeholder.com/40';
+                await loadGamesFromCloud();
+            } else {
+                currentUser = null;
+                document.getElementById('btnLogin').classList.remove('hidden');
+                document.getElementById('userProfile').classList.add('hidden');
+                loadGamesFromStorage();
+            }
+            render();
+        });
+
+        window.loginWithGoogle = async () => {
+            try {
+                await signInWithPopup(auth, provider);
+                showToast('🔥 Berhasil Login dengan Akun Google!');
+            } catch (error) {
+                showToast('⚠️ Gagal Login: ' + error.message);
+            }
+        };
+
+        window.logoutGoogle = async () => {
+            await signOut(auth);
+            showToast('Berhasil Logout.');
+        };
+
+        async function loadGamesFromCloud() {
+            if (!currentUser) return;
+            try {
+                const docRef = doc(db, "users", currentUser.uid);
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    window.games = docSnap.data().games || [];
+                } else {
+                    window.games = initialGames;
+                    await saveGamesToCloud();
+                }
+            } catch (e) {
+                console.error("Cloud Error:", e);
+                loadGamesFromStorage();
+            }
+        }
+
+        async function saveGamesToCloud() {
+            if (!currentUser) return;
+            try {
+                const docRef = doc(db, "users", currentUser.uid);
+                await setDoc(docRef, { games: window.games });
+            } catch (e) {
+                console.error("Gagal simpan ke cloud:", e);
+            }
+        }
+
+        window.saveGamesToStorage = function() {
+            try {
+                localStorage.setItem('gamer_vault_data', JSON.stringify(window.games));
+                if (currentUser) {
+                    saveGamesToCloud();
+                }
+            } catch (e) {
+                showToast('⚠️ Local Storage Penuh!');
+            }
+        };
+
+        function loadGamesFromStorage() {
+            const stored = localStorage.getItem('gamer_vault_data');
+            if (stored) {
+                try { window.games = JSON.parse(stored); } catch (e) { window.games = initialGames; }
+            } else {
+                window.games = initialGames;
+                window.saveGamesToStorage();
+            }
+        }
+
+        // FUNGSI KONVERSI GAMBAR LOKAL KE BASE64 (DITAMPUNG DI DATABASE FIRESTORE)
+        window.convertImageToBase64 = function(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        };
+    </script>
+
+    <!-- UI Interaction Scripts -->
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            setupEventListeners();
+        });
+
+        function setupEventListeners() {
+            document.getElementById('searchInput').addEventListener('input', () => render());
+            document.getElementById('addImageUrl').addEventListener('input', (e) => {
+                if (window.currentImageSourceType === 'url') {
+                    const url = e.target.value.trim();
+                    if (url) showPreviewImage(url); else hidePreviewImage();
+                }
+            });
+        }
+
+        function exportDataJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(window.games, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `library-games-backup-${new Date().toISOString().slice(0,10)}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showToast('💾 Data game berhasil di-export!');
+        }
+
+        function importDataJSON(event) {
+            const fileReader = new FileReader();
+            fileReader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (Array.isArray(imported)) {
+                        window.games = imported;
+                        window.saveGamesToStorage();
+                        render();
+                        showToast('📂 Backup JSON berhasil dipulihkan!');
+                    }
+                } catch (err) { alert('Gagal membaca JSON!'); }
+            };
+            if (event.target.files[0]) fileReader.readAsText(event.target.files[0]);
+        }
+
+        function switchImageSource(type) {
+            window.currentImageSourceType = type;
+            const btnFile = document.getElementById('btnSourceFile');
+            const btnUrl = document.getElementById('btnSourceUrl');
+            const containerFile = document.getElementById('fileInputContainer');
+            const containerUrl = document.getElementById('urlInputContainer');
+
+            if (type === 'file') {
+                btnFile.className = "py-1.5 text-xs font-semibold rounded-lg border bg-purple-600 text-white border-purple-500 transition flex items-center justify-center gap-1.5";
+                btnUrl.className = "py-1.5 text-xs font-semibold rounded-lg border bg-slate-900 text-slate-400 border-slate-700 hover:text-white transition flex items-center justify-center gap-1.5";
+                containerFile.classList.remove('hidden');
+                containerUrl.classList.add('hidden');
+            } else {
+                btnUrl.className = "py-1.5 text-xs font-semibold rounded-lg border bg-purple-600 text-white border-purple-500 transition flex items-center justify-center gap-1.5";
+                btnFile.className = "py-1.5 text-xs font-semibold rounded-lg border bg-slate-900 text-slate-400 border-slate-700 hover:text-white transition flex items-center justify-center gap-1.5";
+                containerUrl.classList.remove('hidden');
+                containerFile.classList.add('hidden');
+            }
+        }
+
+        function previewLocalImage(input) {
+            if (input.files && input.files[0]) {
+                window.selectedImageFile = input.files[0];
+                document.getElementById('fileNameDisplay').innerText = window.selectedImageFile.name;
+                const reader = new FileReader();
+                reader.onload = function(e) { showPreviewImage(e.target.result); };
+                reader.readAsDataURL(window.selectedImageFile);
+            }
+        }
+
+        function showPreviewImage(src) {
+            document.getElementById('imagePreview').src = src;
+            document.getElementById('imagePreviewWrapper').classList.remove('hidden');
+        }
+
+        function hidePreviewImage() {
+            document.getElementById('imagePreviewWrapper').classList.add('hidden');
+        }
+
+        function switchTab(tab) {
+            window.currentTab = tab;
+            const tabWishlist = document.getElementById('tabWishlist');
+            const tabCompleted = document.getElementById('tabCompleted');
+            const filterContainer = document.getElementById('wishlistFilterContainer');
+            const completedInfo = document.getElementById('completedInfoContainer');
+
+            if (tab === 'wishlist') {
+                tabWishlist.className = "py-3 px-1 font-gaming text-sm font-bold flex items-center gap-2 border-b-2 border-cyan-400 text-cyan-400 transition-all duration-200";
+                tabCompleted.className = "py-3 px-1 font-gaming text-sm font-bold flex items-center gap-2 border-b-2 border-transparent text-slate-400 hover:text-purple-400 transition-all duration-200";
+                filterContainer.classList.remove('hidden');
+                completedInfo.classList.add('hidden');
+            } else {
+                tabCompleted.className = "py-3 px-1 font-gaming text-sm font-bold flex items-center gap-2 border-b-2 border-purple-400 text-purple-400 transition-all duration-200";
+                tabWishlist.className = "py-3 px-1 font-gaming text-sm font-bold flex items-center gap-2 border-b-2 border-transparent text-slate-400 hover:text-cyan-400 transition-all duration-200";
+                filterContainer.classList.add('hidden');
+                completedInfo.classList.remove('hidden');
+            }
+            render();
+        }
+
+        function setWishlistSubFilter(filter) {
+            window.currentWishlistSubFilter = filter;
+            ['btnFilterAll', 'btnFilterPlaying', 'btnFilterNotPlaying'].forEach(id => {
+                document.getElementById(id).className = "px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 transition flex items-center gap-1.5";
+            });
+
+            if (filter === 'all') document.getElementById('btnFilterAll').className = "px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-600 text-white transition";
+            else if (filter === 'Playing') document.getElementById('btnFilterPlaying').className = "px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 text-white transition flex items-center gap-1.5";
+            else if (filter === 'Not Playing') document.getElementById('btnFilterNotPlaying').className = "px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-600 text-white transition flex items-center gap-1.5";
+
+            render();
+        }
+
+        function render() {
+            const grid = document.getElementById('gameGrid');
+            const emptyState = document.getElementById('emptyState');
+            const searchVal = document.getElementById('searchInput').value.toLowerCase().trim();
+
+            const wishlistList = window.games.filter(g => g.category === 'wishlist');
+            const completedList = window.games.filter(g => g.category === 'completed');
+            
+            document.getElementById('badgeWishlistCount').innerText = wishlistList.length;
+            document.getElementById('badgeCompletedCount').innerText = completedList.length;
+
+            let filtered = window.games.filter(g => g.category === window.currentTab);
+            if (window.currentTab === 'wishlist' && window.currentWishlistSubFilter !== 'all') {
+                filtered = filtered.filter(g => g.status === window.currentWishlistSubFilter);
+            }
+            if (searchVal) {
+                filtered = filtered.filter(g => g.title.toLowerCase().includes(searchVal));
+            }
+
+            grid.innerHTML = '';
+            if (filtered.length === 0) {
+                emptyState.classList.remove('hidden');
+                emptyState.classList.add('flex');
+            } else {
+                emptyState.classList.add('hidden');
+                emptyState.classList.remove('flex');
+                filtered.forEach(game => grid.appendChild(createGameCard(game)));
+            }
+        }
+
+        function createGameCard(game) {
+            const card = document.createElement('div');
+            card.className = `game-card bg-gaming-card rounded-2xl overflow-hidden neon-border flex flex-col justify-between shadow-lg relative group border border-slate-800/80`;
+            card.id = `card-${game.id}`;
+
+            const isWishlist = game.category === 'wishlist';
+            const defaultFallbackImg = `https://placehold.co/1200x675/12131e/8b5cf6?text=${encodeURIComponent(game.title)}`;
+            const imageUrl = game.image || defaultFallbackImg;
+
+            let starsHtml = '';
+            if (!isWishlist && game.rating) {
+                for (let i = 1; i <= 5; i++) {
+                    starsHtml += i <= game.rating ? `<i class="fa-solid fa-star text-amber-400 text-xs"></i>` : `<i class="fa-regular fa-star text-slate-600 text-xs"></i>`;
+                }
+            }
+
+            card.innerHTML = `
+                <div class="relative overflow-hidden aspect-16-9 cursor-pointer bg-slate-900" onclick="${!isWishlist ? `openRatingModal('${game.id}')` : ''}">
+                    <img src="${imageUrl}" alt="${game.title}" onerror="this.onerror=null; this.src='${defaultFallbackImg}'" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                    <div class="absolute inset-0 bg-gradient-to-t from-gaming-card via-transparent to-black/30"></div>
+                    <span class="absolute top-3 left-3 bg-black/70 backdrop-blur-md text-[10px] font-bold tracking-wider uppercase px-2 py-1 rounded-md border border-white/10 text-slate-300">
+                        ${game.platform || 'Platform'}
+                    </span>
+                    <div class="absolute top-3 right-3">
+                        ${isWishlist ? `
+                            <span class="text-[10px] font-semibold px-2.5 py-1 rounded-full border backdrop-blur-md flex items-center gap-1 ${game.status === 'Playing' ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/50 neon-glow-emerald' : 'bg-slate-900/80 text-amber-300 border-amber-500/40'}">
+                                <span class="w-1.5 h-1.5 rounded-full ${game.status === 'Playing' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}"></span>
+                                ${game.status}
+                            </span>
+                        ` : `
+                            <span class="bg-purple-950/90 text-purple-300 text-[10px] font-bold px-2.5 py-1 rounded-full border border-purple-500/50 flex items-center gap-1 backdrop-blur-md">
+                                <i class="fa-solid fa-trophy text-amber-400"></i> Tamat
+                            </span>
+                        `}
+                    </div>
+                </div>
+                <div class="p-4 flex-1 flex flex-col justify-between">
+                    <div>
+                        <h3 class="font-gaming text-base font-bold text-white group-hover:text-purple-400 transition line-clamp-1" title="${game.title}">${game.title}</h3>
+                        ${!isWishlist ? `
+                            <div class="flex items-center gap-1.5 mt-2">
+                                <div class="flex items-center">${starsHtml}</div>
+                                <span class="text-xs font-bold text-amber-400 ml-1">${game.rating}.0</span>
+                            </div>
+                            ${game.review ? `<p class="text-[11px] text-slate-400 mt-2 line-clamp-2 italic bg-slate-900/60 p-2 rounded-lg border border-slate-800/50">"${game.review}"</p>` : ''}
+                        ` : ''}
+                    </div>
+                    ${isWishlist ? `
+                        <div class="mt-4 pt-3 border-t border-slate-800/80">
+                            <label class="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Ubah Status:</label>
+                            <div class="grid grid-cols-3 gap-1.5">
+                                <button onclick="updateWishlistStatus('${game.id}', 'Playing')" class="py-1.5 text-[11px] font-semibold rounded-lg border transition ${game.status === 'Playing' ? 'bg-emerald-600 text-white border-emerald-500 shadow-lg' : 'bg-slate-900 text-slate-400 border-slate-700 hover:bg-slate-800 hover:text-white'}">Playing</button>
+                                <button onclick="updateWishlistStatus('${game.id}', 'Not Playing')" class="py-1.5 text-[11px] font-semibold rounded-lg border transition ${game.status === 'Not Playing' ? 'bg-amber-600 text-white border-amber-500 shadow-lg' : 'bg-slate-900 text-slate-400 border-slate-700 hover:bg-slate-800 hover:text-white'}">Not Playing</button>
+                                <button onclick="triggerEndTransition('${game.id}')" class="py-1.5 text-[11px] font-bold rounded-lg bg-gradient-to-r from-rose-600 to-purple-600 text-white border border-rose-500/50 hover:brightness-125 transition flex items-center justify-center gap-1 shadow-md"><i class="fa-solid fa-flag-checkered text-[10px]"></i> END</button>
+                            </div>
+                        </div>
+                    ` : `
+                        <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+                            <span>Status: <strong class="text-purple-400">Tamat</strong></span>
+                            <button onclick="openRatingModal('${game.id}')" class="text-purple-400 hover:text-purple-300 font-semibold text-[11px] flex items-center gap-1"><i class="fa-solid fa-pen-to-square"></i> Edit Rating</button>
+                        </div>
+                    `}
+                </div>
+            `;
+            return card;
+        }
+
+        function updateWishlistStatus(gameId, newStatus) {
+            const index = window.games.findIndex(g => g.id === gameId);
+            if (index !== -1) {
+                window.games[index].status = newStatus;
+                window.saveGamesToStorage();
+                render();
+                showToast(`Status game diubah ke <b>${newStatus}</b>`);
+            }
+        }
+
+        function triggerEndTransition(gameId) {
+            const index = window.games.findIndex(g => g.id === gameId);
+            if (index === -1) return;
+
+            window.games[index].category = 'completed';
+            window.games[index].status = 'End';
+            if (!window.games[index].rating) window.games[index].rating = 5;
+            
+            window.saveGamesToStorage();
+            switchTab('completed');
+            showToast(`🎮 YAY! Game <b>"${window.games[index].title}"</b> tamat!`);
+            openRatingModal(gameId);
+        }
+
+        function openAddModal() {
+            document.getElementById('addGameForm').reset();
+            window.selectedImageFile = null;
+            document.getElementById('fileNameDisplay').innerText = 'Klik / Cari Gambar';
+            switchImageSource('file');
+            toggleModalStatusField();
+            hidePreviewImage();
+            document.getElementById('addModal').classList.remove('hidden');
+        }
+
+        function closeAddModal() {
+            document.getElementById('addModal').classList.add('hidden');
+        }
+
+        function toggleModalStatusField() {
+            const cat = document.getElementById('addCategory').value;
+            if (cat === 'wishlist') {
+                document.getElementById('modalStatusGroup').classList.remove('hidden');
+                document.getElementById('modalRatingGroup').classList.add('hidden');
+            } else {
+                document.getElementById('modalStatusGroup').classList.add('hidden');
+                document.getElementById('modalRatingGroup').classList.remove('hidden');
+            }
+        }
+
+        async function handleAddGame(e) {
+            e.preventDefault();
+            const btnSubmit = document.getElementById('btnSubmitGame');
+            btnSubmit.innerText = "Menyimpan ke Firebase...";
+            btnSubmit.disabled = true;
+
+            const title = document.getElementById('addTitle').value.trim();
+            const platform = document.getElementById('addPlatform').value;
+            const category = document.getElementById('addCategory').value;
+            const status = category === 'wishlist' ? document.getElementById('addStatus').value : 'End';
+            const rating = category === 'completed' ? parseInt(document.getElementById('addRating').value) || 5 : 0;
+
+            let image = '';
+            if (window.currentImageSourceType === 'file' && window.selectedImageFile) {
+                // Mengubah file lokal menjadi Base64 teks
+                image = await window.convertImageToBase64(window.selectedImageFile);
+            } else {
+                image = document.getElementById('addImageUrl').value.trim();
+            }
+
+            const newGame = {
+                id: Date.now().toString(),
+                title,
+                image,
+                platform,
+                category,
+                status,
+                rating,
+                review: ''
+            };
+
+            window.games.unshift(newGame);
+            window.saveGamesToStorage(); // Otomatis tersimpan ke Cloud Firestore
+            closeAddModal();
+            btnSubmit.innerText = "Simpan Game";
+            btnSubmit.disabled = false;
+
+            if (window.currentTab !== category) switchTab(category); else render();
+            showToast(`Game <b>"${title}"</b> berhasil disimpan ke Firebase!`);
+        }
+
+        function openRatingModal(gameId) {
+            const game = window.games.find(g => g.id === gameId);
+            if (!game) return;
+
+            window.selectedGameForRating = game;
+            window.tempRatingValue = game.rating || 5;
+
+            document.getElementById('ratingModalTitle').innerText = game.title;
+            document.getElementById('ratingModalPlatform').innerText = game.platform || 'Platform';
+            document.getElementById('ratingModalImg').src = game.image || `https://placehold.co/1200x675/12131e/8b5cf6?text=${encodeURIComponent(game.title)}`;
+            document.getElementById('ratingReviewText').value = game.review || '';
+
+            updateStarDisplay(window.tempRatingValue);
+            document.getElementById('ratingModal').classList.remove('hidden');
+        }
+
+        function closeRatingModal() {
+            document.getElementById('ratingModal').classList.add('hidden');
+            window.selectedGameForRating = null;
+        }
+
+        function setStarRating(val) {
+            window.tempRatingValue = val;
+            updateStarDisplay(val);
+        }
+
+        function highlightStars(val) { updateStarDisplay(val); }
+        function resetStars() { updateStarDisplay(window.tempRatingValue); }
+
+        function updateStarDisplay(ratingVal) {
+            const stars = document.querySelectorAll('#starContainer i');
+            stars.forEach(star => {
+                const val = parseInt(star.getAttribute('data-value'));
+                star.className = val <= ratingVal ? "fa-solid fa-star text-amber-400" : "fa-regular fa-star text-slate-600";
+            });
+            document.getElementById('ratingValueText').innerText = `${ratingVal}.0 / 5.0`;
+        }
+
+        function saveRatingAndReview() {
+            if (!window.selectedGameForRating) return;
+            const index = window.games.findIndex(g => g.id === window.selectedGameForRating.id);
+            if (index !== -1) {
+                window.games[index].rating = window.tempRatingValue;
+                window.games[index].review = document.getElementById('ratingReviewText').value.trim();
+                window.saveGamesToStorage();
+                render();
+                showToast(`Rating diperbarui di Cloud!`);
+            }
+            closeRatingModal();
+        }
+
+        function deleteCurrentGame() {
+            if (!window.selectedGameForRating) return;
+            if (confirm(`Hapus "${window.selectedGameForRating.title}"?`)) {
+                window.games = window.games.filter(g => g.id !== window.selectedGameForRating.id);
+                window.saveGamesToStorage();
+                closeRatingModal();
+                render();
+                showToast(`Game dihapus.`);
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMessage').innerHTML = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => { toast.classList.add('hidden'); }, 3500);
+        }
+    </script>
+</body>
+</html>
