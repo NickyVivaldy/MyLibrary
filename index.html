@@ -338,11 +338,11 @@
         </div>
     </footer>
 
-    <!-- Firebase SDK & IndexedDB Local Storage Integration -->
+    <!-- Firebase SDK & Migrasi Otomatis Data Lama -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         // Firebase Configuration
         const firebaseConfig = {
@@ -434,7 +434,7 @@
             showToast('Berhasil Logout.');
         };
 
-        // SISTEM DOKUMEN TERPISAH: Setiap game disimpan di sub-koleksi users/{uid}/games
+        // LOAD GAMES DARI CLOUD + OTOMATIS MIGRASI 15 GAME LAMA
         async function loadGamesFromCloud() {
             if (!currentUser) return;
             try {
@@ -448,9 +448,23 @@
                 if (loadedGames.length > 0) {
                     window.games = loadedGames;
                 } else {
-                    window.games = initialGames;
-                    for (const g of initialGames) {
-                        await setDoc(doc(db, "users", currentUser.uid, "games", g.id), g);
+                    // Cek apakah ada data lama di dokumen induk users/{uid}
+                    const oldDocRef = doc(db, "users", currentUser.uid);
+                    const oldDocSnap = await getDoc(oldDocRef);
+
+                    if (oldDocSnap.exists() && oldDocSnap.data().games && oldDocSnap.data().games.length > 0) {
+                        const oldGames = oldDocSnap.data().games;
+                        window.games = oldGames;
+                        // Pindahkan otomatis ke sub-koleksi baru
+                        for (const g of oldGames) {
+                            await setDoc(doc(db, "users", currentUser.uid, "games", String(g.id)), g);
+                        }
+                        showToast("🎉 15 Game lama berhasil dipulihkan!");
+                    } else {
+                        window.games = initialGames;
+                        for (const g of initialGames) {
+                            await setDoc(doc(db, "users", currentUser.uid, "games", String(g.id)), g);
+                        }
                     }
                 }
             } catch (e) {
@@ -459,22 +473,20 @@
             }
         }
 
-        // SIMPAN / UPDATE 1 GAME SPESIFIK KE CLOUD (Anti-Limit 1MB per dokumen)
         window.saveSingleGameToCloud = async function(gameObj) {
             if (!currentUser) return;
             try {
-                const gameDocRef = doc(db, "users", currentUser.uid, "games", gameObj.id);
+                const gameDocRef = doc(db, "users", currentUser.uid, "games", String(gameObj.id));
                 await setDoc(gameDocRef, gameObj);
             } catch (e) {
                 console.error("Gagal simpan game ke cloud:", e);
             }
         };
 
-        // HAPUS 1 GAME SPESIFIK DARI CLOUD
         window.deleteGameFromCloud = async function(gameId) {
             if (!currentUser) return;
             try {
-                const gameDocRef = doc(db, "users", currentUser.uid, "games", gameId);
+                const gameDocRef = doc(db, "users", currentUser.uid, "games", String(gameId));
                 await deleteDoc(gameDocRef);
             } catch (e) {
                 console.error("Gagal hapus game dari cloud:", e);
@@ -499,12 +511,12 @@
             }
         }
 
-        // FUNGSI KONVERSI BASE64 100% ORIGINAL TANPA KOMPRESI SAMA SEKALI
+        // 100% GAMBAR ASLI TANPA KOMPRESI
         window.convertImageToBase64 = function(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result); // Mengambil data mentah asli tanpa resize/kompres
+                reader.onload = () => resolve(reader.result);
                 reader.onerror = error => reject(error);
             });
         };
@@ -791,7 +803,6 @@
 
             let image = '';
             if (window.currentImageSourceType === 'file' && window.selectedImageFile) {
-                // Mengambil gambar 100% mentah tanpa kompresi
                 image = await window.convertImageToBase64(window.selectedImageFile);
             } else {
                 image = document.getElementById('addImageUrl').value.trim();
